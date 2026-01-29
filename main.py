@@ -7,7 +7,14 @@ from Animation import AnimatedSprite
 from pyglet.graphics import Batch
 from arcade.gui import UIManager, UITextureButton, UILabel
 from arcade.gui.widgets.layout import UIAnchorLayout, UIBoxLayout
+from arcade.particles import Emitter, EmitBurst, FadeParticle
 
+SPARK_TEX = [
+    arcade.make_soft_circle_texture(8, arcade.color.PASTEL_YELLOW),
+    arcade.make_soft_circle_texture(8, arcade.color.PEACH),
+    arcade.make_soft_circle_texture(8, arcade.color.BABY_BLUE),
+    arcade.make_soft_circle_texture(8, arcade.color.ELECTRIC_CRIMSON),
+]
 SCREEN_WIDTH = 1024
 SCREEN_HEIGHT = 1024
 SCREEN_TITLE = "Game"
@@ -165,6 +172,8 @@ class MenuView(arcade.View):
         self.background_color = arcade.color.BLUE_GRAY
         self.manager = arcade.gui.UIManager(window=self.window)
 
+        self.emitters = []
+
         self.menus = arcade.load_sound('res/menu.mp3')
         self.m_p = None
 
@@ -286,6 +295,7 @@ class GameView(arcade.View):
         super().__init__()
         self.window.set_mouse_visible(False)
         self.invincibility_timer = 0.0
+        self.emitters = []
 
         self.hurt = arcade.load_sound("res/hurt-a.mp3")
         self.ghost_sound = arcade.load_sound("res/ghost_death.mp3")
@@ -578,6 +588,9 @@ class GameView(arcade.View):
         self.bullet_list.draw(pixelated=True)
         self.door_list.draw(pixelated=True)
 
+        for e in self.emitters:
+            e.draw()
+
         if self.player.current_level == 1 or self.player.current_level == 3:
             self.h_obj.draw(pixelated=True)
         elif self.player.current_level == 2:
@@ -617,7 +630,7 @@ class GameView(arcade.View):
 
     def on_update(self, delta_time: float):
         if self.particle_list:
-           self.particle_list.update()
+            self.particle_list.update()
         self.bullet_list.update()
         self.portal_list.update()
         self.player_list.update_animation(delta_time)
@@ -638,6 +651,10 @@ class GameView(arcade.View):
                 item = Loot(loot_type, chest.center_x, chest.center_y)
                 self.loot_list.append(item)
                 chest.remove_from_sprite_lists()
+
+        emitters_copy = self.emitters.copy()
+        for e in emitters_copy:
+            e.update(int(delta_time))
 
         hit_loot = arcade.check_for_collision_with_list(self.player, self.loot_list)
         for item in hit_loot:
@@ -810,6 +827,7 @@ class GameView(arcade.View):
                         for enemy in hit_enemies:
                             enemy.health -= getattr(bullet, 'damage', 1)
                             if enemy.health <= 0:
+                                self.emitters.append(make_explosion(enemy.center_x, enemy.center_y))
                                 enemy.remove_from_sprite_lists()
                                 self.score += 1
                             break
@@ -883,6 +901,27 @@ class GameView(arcade.View):
                     arcade.play_sound(self.bullet_sound)
 
                     self.shoot_timer = self.shoot_cooldown
+
+
+def make_explosion(x, y, count=20):
+    return Emitter(
+        center_xy=(x, y),
+        emit_controller=EmitBurst(count),
+        particle_factory=lambda e: FadeParticle(
+            filename_or_texture=random.choice(SPARK_TEX),
+            change_xy=arcade.math.rand_in_circle((0.0, 0.0), 9.0),
+            lifetime=random.uniform(0.5, 1.1),
+            start_alpha=255, end_alpha=0,
+            scale=random.uniform(0.35, 0.6),
+            mutation_callback=gravity_drag,
+        ),
+    )
+
+
+def gravity_drag(p):
+    p.change_y += -0.03
+    p.change_x *= 0.92
+    p.change_y *= 0.92
 
 
 def main():
