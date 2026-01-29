@@ -150,8 +150,8 @@ class Enemy2(AnimatedSprite):
         angle = math.atan2(self.player.center_y - self.center_y,
                            self.player.center_x - self.center_x)
 
-        bullet.change_x = math.cos(angle) * 5
-        bullet.change_y = math.sin(angle) * 5
+        bullet.change_x = math.cos(angle) * 2
+        bullet.change_y = math.sin(angle) * 2
         bullet.angle = math.degrees(angle) - 90
 
         self.bullet_list.append(bullet)
@@ -220,20 +220,21 @@ class BossChaser(AnimatedSprite):
 
     def die(self, game_view):
         for _ in range(15):
-            particle = arcade.SpriteCircle(4, arcade.color.YELLOW)
+            particle = arcade.SpriteCircle(4, arcade.color.ORANGE)
             particle.center_x = self.center_x
             particle.center_y = self.center_y
-            particle.change_x = random.uniform(-2, 2)
-            particle.change_y = random.uniform(-2, 2)
+            particle.change_x = random.uniform(-4, 4)
+            particle.change_y = random.uniform(-4, 4)
             game_view.bullet_list.append(particle)
 
-        portal_list = game_view.tile_map.sprite_lists.get("portal_layer")
-        if portal_list:
-            for portal_sprite in portal_list:
-                portal_sprite.center_x = self.center_x
-                portal_sprite.center_y = self.center_y
-                portal_sprite.portal = True
-                game_view.enemy_list.append(portal_sprite)
+        portal = arcade.Sprite("res/portal.png", scale=1.0)
+        portal.center_x = self.center_x
+        portal.center_y = self.center_y
+        portal.portal = True
+
+        game_view.enemy_list.append(portal)
+        print(len(game_view.portal_list))
+
         self.portal_spawned = True
         self.remove_from_sprite_lists()
 
@@ -244,10 +245,10 @@ class BossShooter(AnimatedSprite):
         self.bullet_list = bullet_list
         self.map_width = map_width
         self.map_height = map_height
-        self.hp = 20
+        self.hp = 12
         self.health = self.hp  
         self.speed = 0.5
-        self.shoot_timer = 0.0
+        self.shoot_timer = 1
         self.wander_time = 0
         self.portal_spawned = False
 
@@ -285,8 +286,8 @@ class BossShooter(AnimatedSprite):
             bullet = arcade.Sprite("res/ally_bullet2.png", scale=1.0)
             bullet.center_x = self.center_x
             bullet.center_y = self.center_y
-            bullet.change_x = math.cos(angle) * 5
-            bullet.change_y = math.sin(angle) * 5
+            bullet.change_x = math.cos(angle)
+            bullet.change_y = math.sin(angle)
             bullet.damage = 2
             bullet.owner = "enemy"
             self.bullet_list.append(bullet)
@@ -301,16 +302,17 @@ class BossShooter(AnimatedSprite):
             particle = arcade.SpriteCircle(4, arcade.color.ORANGE)
             particle.center_x = self.center_x
             particle.center_y = self.center_y
-            particle.change_x = random.uniform(-2, 2)
-            particle.change_y = random.uniform(-2, 2)
+            particle.change_x = random.uniform(-4, 4)
+            particle.change_y = random.uniform(-4, 4)
             game_view.bullet_list.append(particle)
 
-        portal_list = game_view.tile_map.sprite_lists.get("portal_layer")
-        if portal_list:
-            for portal_sprite in portal_list:
-                portal_sprite.center_x = self.center_x
-                portal_sprite.center_y = self.center_y
-                portal_sprite.portal = True
-                game_view.enemy_list.append(portal_sprite)
+        portal = arcade.Sprite("res/portal.png", scale=1.0)
+        portal.center_x = self.center_x
+        portal.center_y = self.center_y
+        portal.portal = True
+
+        game_view.portal_list.append(portal)
+        print(len(game_view.portal_list))
+
         self.portal_spawned = True
         self.remove_from_sprite_lists()

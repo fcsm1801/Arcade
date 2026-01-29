@@ -35,7 +35,7 @@ class DeathView(arcade.View):
         texture_normal = arcade.load_texture(":resources:/gui_basic_assets/button/red_normal.png")
         texture_hovered = arcade.load_texture(":resources:/gui_basic_assets/button/red_hover.png")
         texture_pressed = arcade.load_texture(":resources:/gui_basic_assets/button/red_press.png")
-        
+
         b_s = UITextureButton(texture=texture_normal,
                               text='Сохранить результаты',
                               texture_hovered=texture_hovered,
@@ -82,10 +82,10 @@ class DeathView(arcade.View):
             stat = {'max_loop': 0}
 
         current_loop = self.game_view.player.loop
-        
+
         if current_loop > stat.get('max_loop', 0):
             stat['max_loop'] = current_loop
-            
+
         with open('player_stat.txt', 'w') as f:
             for name, value in stat.items():
                 f.write(f"{name}={value}\n")
@@ -117,7 +117,7 @@ class PauseView(arcade.View):
         texture_normal = arcade.load_texture(":resources:/gui_basic_assets/button/red_normal.png")
         texture_hovered = arcade.load_texture(":resources:/gui_basic_assets/button/red_hover.png")
         texture_pressed = arcade.load_texture(":resources:/gui_basic_assets/button/red_press.png")
-        
+
         b_s = UITextureButton(texture=texture_normal,
                               text='Продолжить',
                               texture_hovered=texture_hovered,
@@ -164,7 +164,7 @@ class MenuView(arcade.View):
     def __init__(self):
         super().__init__()
         self.background_color = arcade.color.BLUE_GRAY
-        self.manager = UIManager()
+        self.manager = arcade.gui.UIManager(window=self.window)
 
         self.menus = arcade.load_sound('res/menu.mp3')
         self.m_p = None
@@ -176,13 +176,13 @@ class MenuView(arcade.View):
         texture_normal = arcade.load_texture(":resources:/gui_basic_assets/button/red_normal.png")
         texture_hovered = arcade.load_texture(":resources:/gui_basic_assets/button/red_hover.png")
         texture_pressed = arcade.load_texture(":resources:/gui_basic_assets/button/red_press.png")
-        
+
         main_t = UILabel(text="Крутая игра 3d",
                          font_size=100,
                          text_color=arcade.color.WHITE,
                          width=700,
                          align="center")
-        
+
         b_s = UITextureButton(texture=texture_normal,
                               text='Новый забег',
                               texture_hovered=texture_hovered,
@@ -227,7 +227,7 @@ class MenuView(arcade.View):
 
     def start_game(self, event):
         game_view = GameView()
-        game_view.setup()
+        game_view.setup(reset_progress=True)
         self.window.show_view(game_view)
 
     def close_game(self, event):
@@ -237,7 +237,7 @@ class MenuView(arcade.View):
 class Loot(arcade.Sprite):
     def __init__(self, loot_type, x, y):
         self.type = loot_type
-        img = f"res/item{loot_type}.png" 
+        img = f"res/item{loot_type}.png"
         super().__init__(img, scale=1.0, center_x=x, center_y=y)
 
     def apply_bonus(self, player):
@@ -286,6 +286,7 @@ class GameView(arcade.View):
     def __init__(self):
         super().__init__()
         self.window.set_mouse_visible(False)
+        self.invincibility_timer = 0.0
 
         self.hurt = arcade.load_sound("res/hurt-a.mp3")
         self.ghost_sound = arcade.load_sound("res/ghost_death.mp3")
@@ -322,7 +323,15 @@ class GameView(arcade.View):
         self.cross_offset = 40
         self.zoom = 3.44
 
-    def setup(self):
+    def setup(self, reset_progress=False):
+        if reset_progress:
+            self.player.current_level = 1
+            self.player.loop = 0
+            self.player.health = self.player.max_health
+        self.invincibility_timer = 3.0
+
+        self.loot_list = arcade.SpriteList()
+        self.player_list = arcade.SpriteList()
         self.loot_list = arcade.SpriteList()
         self.player_list = arcade.SpriteList()
         stat = {}
@@ -334,7 +343,7 @@ class GameView(arcade.View):
                         stat[name] = int(value)
         except FileNotFoundError:
             stat = {'max_loop': 0}
-        
+
         current_loop = self.player.loop
         if current_loop > stat.get('max_loop', 0):
             stat['max_loop'] = current_loop
@@ -347,9 +356,9 @@ class GameView(arcade.View):
             2: ['rooms/lvl2_v1.tmx'],
             3: ['rooms/lvl3_v1.tmx']
         }
-        
+
         map_name = random.choice(levels[self.player.current_level])
-        
+
         self.tile_map = arcade.load_tilemap(map_name, scaling=TILE_SCALING)
 
         if "portal_layer" in self.tile_map.sprite_lists:
@@ -357,12 +366,12 @@ class GameView(arcade.View):
             for portal in self.portal_list:
                 portal.visible = False
         else:
-            self.portal_list = arcade.SpriteList()
-        
-        self.wall_list   = arcade.SpriteList(use_spatial_hash=True)
+            self.portal_list = arcade.SpriteList(use_spatial_hash=True)
+
+        self.wall_list = arcade.SpriteList(use_spatial_hash=True)
         self.ground_list = arcade.SpriteList(use_spatial_hash=True)
         self.object_list = arcade.SpriteList(use_spatial_hash=True)
-        self.door_list   = arcade.SpriteList(use_spatial_hash=True)
+        self.door_list = arcade.SpriteList(use_spatial_hash=True)
 
         self.wall_list.extend(self.tile_map.sprite_lists["walls"])
         self.ground_list.extend(self.tile_map.sprite_lists["ground"])
@@ -379,13 +388,23 @@ class GameView(arcade.View):
         self.player.center_y = (map_h / 2) - 50
         self.player_list.append(self.player)
 
+        if self.player.left < 0:
+            self.player.left = 0
+        elif self.player.right > map_w:
+            self.player.right = map_w
+
+        if self.player.bottom < 0:
+            self.player.bottom = 0
+        elif self.player.top > map_h:
+            self.player.top = map_h
+
         if self.player.current_level == 1:
-            self.object1_list= arcade.SpriteList(use_spatial_hash=True)
-            self.h_obj       = arcade.SpriteList(use_spatial_hash=True)
+            self.object1_list = arcade.SpriteList(use_spatial_hash=True)
+            self.h_obj = arcade.SpriteList(use_spatial_hash=True)
 
             self.object1_list.extend(self.tile_map.sprite_lists["obj1"])
             self.h_obj.extend(self.tile_map.sprite_lists["hit_obj"])
-            
+
             for sprite in self.door_list:
                 sprite.visible = False
 
@@ -393,7 +412,7 @@ class GameView(arcade.View):
             self.cross_list = arcade.SpriteList()
             self.cross = Cross()
             self.cross_list.append(self.cross)
-            
+
             self.f_wall_list.extend(self.h_obj)
             self.enemy_list = arcade.SpriteList()
             self.bullet_list = arcade.SpriteList()
@@ -450,7 +469,7 @@ class GameView(arcade.View):
             )
 
         elif self.player.current_level == 2:
-            self.chest= arcade.SpriteList(use_spatial_hash=True)
+            self.chest = arcade.SpriteList(use_spatial_hash=True)
             self.object1_list = arcade.SpriteList(use_spatial_hash=True)
 
             self.object1_list.extend(self.tile_map.sprite_lists["obj1"])
@@ -477,12 +496,12 @@ class GameView(arcade.View):
             )
 
         elif self.player.current_level == 3:
-            self.object1_list= arcade.SpriteList(use_spatial_hash=True)
-            self.h_obj       = arcade.SpriteList(use_spatial_hash=True)
+            self.object1_list = arcade.SpriteList(use_spatial_hash=True)
+            self.h_obj = arcade.SpriteList(use_spatial_hash=True)
 
             self.object1_list.extend(self.tile_map.sprite_lists["obj1"])
             self.h_obj.extend(self.tile_map.sprite_lists["hit_obj"])
-            
+
             for sprite in self.door_list:
                 sprite.visible = False
 
@@ -517,13 +536,14 @@ class GameView(arcade.View):
             spawned_e3 = False
             attempt = 0
             while not spawned_e3 and attempt < 100:
-                e3 = random.choice([BossChaser(self.player, map_w, map_h), BossShooter(self.player,self.bullet_list, map_w, map_h)])
+                e3 = random.choice(
+                    [BossChaser(self.player, map_w, map_h), BossShooter(self.player, self.bullet_list, map_w, map_h)])
                 e3.center_x = random.randint(100, map_w - 100)
                 e3.center_y = random.randint(100, map_h - 100)
                 if not arcade.check_for_collision_with_list(e3, self.f_wall_list):
                     self.enemy_list.append(e3)
                     spawned_e3 = True
-                attempt += 1    
+                attempt += 1
 
             self.barrier_list = arcade.AStarBarrierList(
                 self.player,
@@ -548,15 +568,15 @@ class GameView(arcade.View):
         self.ground_list.draw(pixelated=True)
         self.wall_list.draw(pixelated=True)
         self.object_list.draw(pixelated=True)
-        
+
         if self.enemy_list:
             self.enemy_list.draw(pixelated=True)
-            
+
         self.object1_list.draw(pixelated=True)
         self.player_list.draw(pixelated=True)
         self.bullet_list.draw(pixelated=True)
         self.door_list.draw(pixelated=True)
-        
+
         if self.player.current_level == 1 or self.player.current_level == 3:
             self.h_obj.draw(pixelated=True)
         elif self.player.current_level == 2:
@@ -568,14 +588,48 @@ class GameView(arcade.View):
 
         self.cross_list.draw(pixelated=True)
 
+        start_x = 300
+        start_y = 300
+        bar_max_width = 200
+        bar_height = 20
+
+        health_ratio = int(self.player.health / self.player.max_health)
+        current_width = int(bar_max_width * health_ratio)
+
+        center_x_full = int(start_x + bar_max_width / 2)
+        center_x_current = int(start_x + current_width / 2)
+
+        arcade.draw_rect_outline(
+            arcade.rect.XYWH(x=start_x + bar_max_width / 2, y=start_y, width=bar_max_width, height=bar_height),
+            color=arcade.color.BLACK
+        )
+
+        arcade.draw_rect_filled(
+            arcade.rect.XYWH(x=start_x + current_width / 2, y=start_y, width=current_width, height=bar_height),
+            color=arcade.color.MAROON
+        )
+
+        arcade.draw_rect_filled(
+            arcade.rect.XYWH(x=start_x + current_width / 2, y=start_y, width=current_width, height=bar_height),
+            arcade.color.APPLE_GREEN
+        )
+
+        arcade.draw_text(f"HP: {self.player.health}/{self.player.max_health}",
+                         start_x + 5, start_y - 7, arcade.color.WHITE, 12, bold=True)
+
     def on_update(self, delta_time: float):
+        self.bullet_list.update()  # Чтобы частицы летели (change_x/y)
+        self.portal_list.update()
         self.player_list.update_animation(delta_time)
         self.player_list.update()
-        
+
+        if self.invincibility_timer > 0:
+            self.invincibility_timer -= delta_time
+
         if self.enemy_list:
             self.enemy_list.update_animation(delta_time)
             self.enemy_list.update()
-        
+
         if self.player.current_level == 2:
             self.chest.update_animation(delta_time)
             chests_hit = arcade.check_for_collision_with_list(self.player, self.chest)
@@ -609,15 +663,15 @@ class GameView(arcade.View):
             self.player.change_x -= self.player.speed
         if self.right_pressed:
             self.player.change_x += self.player.speed
-            
+
         self.player.change_x *= self.friction
         self.player.change_y *= self.friction
-        
+
         if abs(self.player.change_x) < 0.05:
             self.player.change_x = 0
         if abs(self.player.change_y) < 0.05:
             self.player.change_y = 0
-        
+
         self.frame_count += 1
 
         if self.shoot_timer > 0:
@@ -629,7 +683,8 @@ class GameView(arcade.View):
         if self.enemy_list:
             self.enemy_list.update()
 
-        self.camera.position = ((self.tile_map.width * self.tile_map.tile_width)/2, (self.tile_map.height * self.tile_map.tile_height)/2)
+        self.camera.position = ((self.tile_map.width * self.tile_map.tile_width) / 2,
+                                (self.tile_map.height * self.tile_map.tile_height) / 2)
 
         mouse_pos = self.camera.unproject((self.mouse_x, self.mouse_y))
         diff_x = mouse_pos[0] - self.player.center_x
@@ -645,16 +700,23 @@ class GameView(arcade.View):
         if self.enemy_list:
             hit_enemies = arcade.check_for_collision_with_list(self.player, self.enemy_list)
             for enemy in hit_enemies:
-                if self.player.hit_cooldown <= 0:
+                if self.invincibility_timer <= 0:
+                    player_hit = arcade.check_for_collision_with_list(self.player, self.bullet_list)
+                    for bullet in player_hit:
+                        if bullet.owner == "enemy":
+                            self.player.health -= bullet.damage
+                            bullet.remove_from_sprite_lists()
+                elif self.player.hit_cooldown <= 0:
                     self.player.health -= 3
+                    arcade.play_sound(self.hurt)
                     self.player.hit_cooldown = 1.5
 
                     dx = self.player.center_x - enemy.center_x
                     dy = self.player.center_y - enemy.center_y
                     dist_to_enemy = math.hypot(dx, dy)
-                    
+
                     knockback_force = 2
-                    
+
                     if dist_to_enemy > 0:
                         self.player.change_x += (dx / dist_to_enemy) * knockback_force
                         self.player.change_y += (dy / dist_to_enemy) * knockback_force
@@ -664,53 +726,106 @@ class GameView(arcade.View):
             self.cross.center_y = self.player.center_y + (diff_y / dist) * self.cross_offset
 
         for bullet in self.bullet_list:
-            hit_walls = arcade.check_for_collision_with_list(bullet, self.wall_list) or arcade.check_for_collision_with_list(bullet, self.object_list)
+            hit_walls = arcade.check_for_collision_with_list(bullet,
+                                                             self.wall_list) or arcade.check_for_collision_with_list(
+                bullet, self.object_list)
             non_breakable_obj = arcade.check_for_collision_with_list(bullet, self.object_list)
-            
+
             if self.player.current_level == 1 or self.player.current_level == 3:
                 hit_objects = arcade.check_for_collision_with_list(bullet, self.h_obj)
                 for obj in hit_objects:
-                    extra_parts = arcade.get_sprites_at_point((obj.position[0], obj.position[1] + 16), self.object1_list)
+                    extra_parts = arcade.get_sprites_at_point((obj.position[0], obj.position[1] + 16),
+                                                              self.object1_list)
                     for part in extra_parts:
                         part.remove_from_sprite_lists()
 
                     obj.remove_from_sprite_lists()
                     if self.enemy_list:
                         self.barrier_list.recalculate()
-            
+
             hit_enemies = []
             if self.enemy_list:
                 hit_enemies = arcade.check_for_collision_with_list(bullet, self.enemy_list)
 
+            self.bullet_list.update()
+
+            hit_enemies = arcade.check_for_collision_with_list(self.player, self.enemy_list)
             for enemy in hit_enemies:
-                damage_value = getattr(bullet, 'damage', 0)
-                if damage_value > 0:
-                    enemy.health -= damage_value
+                if self.invincibility_timer <= 0:
+                    player_hit = arcade.check_for_collision_with_list(self.player, self.bullet_list)
+                    for bullet in player_hit:
+                        if bullet.owner == "enemy":
+                            self.player.health -= bullet.damage
+                            arcade.play_sound(self.hurt)
+                            bullet.remove_from_sprite_lists()
+                elif self.player.hit_cooldown <= 0:
+                    self.player.health -= 3
+                    arcade.play_sound(self.hurt)
+                    if self.player.health <= 0:
+                        DeathView(self)
+                    self.player.hit_cooldown = 1.5
+
+                    dx = self.player.center_x - enemy.center_x
+                    dy = self.player.center_y - enemy.center_y
+                    dist = math.hypot(dx, dy)
+
+                    knockback_force = 2
+
+                    if dist > 0:
+                        self.player.change_x += (dx / dist) * knockback_force
+                        self.player.change_y += (dy / dist) * knockback_force
+
+            if dist > 0:
+                self.cross.center_x = self.player.center_x + (diff_x / dist) * self.cross_offset
+                self.cross.center_y = self.player.center_y + (diff_y / dist) * self.cross_offset
+
+            for bullet in self.bullet_list:
+                hit_objects = arcade.check_for_collision_with_list(bullet, self.h_obj)
+                if hit_objects:
+                    for obj in hit_objects:
+                        extra_parts = arcade.get_sprites_at_point((obj.position[0], obj.position[1] + 16),
+                                                                  self.object1_list)
+                        for part in extra_parts:
+                            part.remove_from_sprite_lists()
+
+                        obj.remove_from_sprite_lists()
+                        self.barrier_list.recalculate()
+
                     bullet.remove_from_sprite_lists()
+                    continue
 
-                    if enemy.health <= 0:
-                        if isinstance(enemy, (BossChaser, BossShooter)):
-                            for portal in self.portal_list:
-                                portal.visible = True
-                            for _ in range(10):
-                                fx = arcade.SpriteCircle(4, arcade.color.YELLOW)
-                                fx.center_x = enemy.center_x + random.randint(-20,20)
-                                fx.center_y = enemy.center_y + random.randint(-20,20)
-                                fx.change_x = random.uniform(-1,1)
-                                fx.change_y = random.uniform(1,3)
-                                self.bullet_list.append(fx)
-                        enemy.remove_from_sprite_lists()
-                    else:
-                        enemy.center_x += bullet.change_x * 1.5
-                        enemy.center_y += bullet.change_y * 1.5
+                if arcade.check_for_collision_with_list(bullet, self.wall_list) or \
+                        arcade.check_for_collision_with_list(bullet, self.object_list):
+                    bullet.remove_from_sprite_lists()
+                    continue
 
-            if self.player.current_level == 1 or self.player.current_level == 3:
-                if hit_walls or hit_objects or hit_enemies or non_breakable_obj:
-                    if bullet in self.bullet_list:
-                        bullet.remove_from_sprite_lists()
-            elif self.player.current_level == 2:
-                if hit_walls or hit_enemies or non_breakable_obj:
-                    if bullet in self.bullet_list:
+                if getattr(bullet, 'owner', '') == "enemy":
+                    if arcade.check_for_collision(bullet, self.player):
+                        if self.invincibility_timer <= 0:
+                            player_hit = arcade.check_for_collision_with_list(self.player, self.bullet_list)
+                            for bullet in player_hit:
+                                if bullet.owner == "enemy":
+                                    self.player.health -= bullet.damage
+                                    arcade.play_sound(self.hurt)
+                                    bullet.remove_from_sprite_lists()
+                        elif self.player.hit_cooldown <= 0:
+                            self.player.health -= 1
+                            arcade.play_sound(self.hurt)
+                            self.player.hit_cooldown = 0.5
+                            bullet.remove_from_sprite_lists()
+                            if self.player.health <= 0:
+                                DeathView(self)
+                        continue
+
+                if getattr(bullet, 'owner', '') == "player":
+                    hit_enemies = arcade.check_for_collision_with_list(bullet, self.enemy_list)
+                    if hit_enemies:
+                        for enemy in hit_enemies:
+                            enemy.health -= getattr(bullet, 'damage', 1)
+                            if enemy.health <= 0:
+                                enemy.remove_from_sprite_lists()
+                                self.score += 1
+                            break
                         bullet.remove_from_sprite_lists()
 
         if self.enemy_list:
@@ -781,6 +896,7 @@ class GameView(arcade.View):
                     arcade.play_sound(self.bullet_sound)
 
                     self.shoot_timer = self.shoot_cooldown
+
 
 def main():
     window = arcade.Window(SCREEN_WIDTH, SCREEN_HEIGHT, SCREEN_TITLE, fullscreen=True)
