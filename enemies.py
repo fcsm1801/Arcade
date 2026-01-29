@@ -223,18 +223,17 @@ class BossChaser(AnimatedSprite):
             particle = arcade.SpriteCircle(4, arcade.color.ORANGE)
             particle.center_x = self.center_x
             particle.center_y = self.center_y
-            particle.change_x = random.uniform(-4, 4)
-            particle.change_y = random.uniform(-4, 4)
-            game_view.bullet_list.append(particle)
+            particle.change_x = random.uniform(-2, 2)
+            particle.change_y = random.uniform(-2, 2)
+            game_view.particle_list.append(particle)
 
-        portal = arcade.Sprite("res/portal.png", scale=1.0)
-        portal.center_x = self.center_x
-        portal.center_y = self.center_y
-        portal.portal = True
-
-        game_view.enemy_list.append(portal)
-        print(len(game_view.portal_list))
-
+        portal_list = game_view.tile_map.sprite_lists.get("portal_layer")
+        if portal_list:
+            for portal_sprite in portal_list:
+                portal_sprite.center_x = self.center_x
+                portal_sprite.center_y = self.center_y
+                portal_sprite.portal = True
+                game_view.enemy_list.append(portal_sprite)
         self.portal_spawned = True
         self.remove_from_sprite_lists()
 
@@ -302,17 +301,16 @@ class BossShooter(AnimatedSprite):
             particle = arcade.SpriteCircle(4, arcade.color.ORANGE)
             particle.center_x = self.center_x
             particle.center_y = self.center_y
-            particle.change_x = random.uniform(-4, 4)
-            particle.change_y = random.uniform(-4, 4)
-            game_view.bullet_list.append(particle)
+            particle.change_x = random.uniform(-2, 2)
+            particle.change_y = random.uniform(-2, 2)
+            game_view.particle_list.append(particle)
 
-        portal = arcade.Sprite("res/portal.png", scale=1.0)
-        portal.center_x = self.center_x
-        portal.center_y = self.center_y
-        portal.portal = True
-
-        game_view.portal_list.append(portal)
-        print(len(game_view.portal_list))
-
+        portal_list = game_view.tile_map.sprite_lists.get("portal_layer")
+        if portal_list:
+            for portal_sprite in portal_list:
+                portal_sprite.center_x = self.center_x
+                portal_sprite.center_y = self.center_y
+                portal_sprite.portal = True
+                game_view.enemy_list.append(portal_sprite)
         self.portal_spawned = True
         self.remove_from_sprite_lists()

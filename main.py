@@ -5,13 +5,12 @@ import random
 from enemies import Enemy1, Enemy2, BossChaser, BossShooter
 from Animation import AnimatedSprite
 from pyglet.graphics import Batch
-from arcade.gui import UIManager, UIFlatButton, UITextureButton, UILabel, UIInputText, UITextArea, UISlider, UIDropdown, \
-    UIMessageBox
+from arcade.gui import UIManager, UITextureButton, UILabel
 from arcade.gui.widgets.layout import UIAnchorLayout, UIBoxLayout
 
 SCREEN_WIDTH = 1024
 SCREEN_HEIGHT = 1024
-SCREEN_TITLE = "Castle Map"
+SCREEN_TITLE = "Game"
 GRID_TILE_SIZE = 32
 TILE_SCALING = 1.0
 
@@ -330,6 +329,8 @@ class GameView(arcade.View):
             self.player.health = self.player.max_health
         self.invincibility_timer = 3.0
 
+        self.particle_list = None
+        self.portal_list = None
         self.loot_list = arcade.SpriteList()
         self.player_list = arcade.SpriteList()
         self.loot_list = arcade.SpriteList()
@@ -364,7 +365,7 @@ class GameView(arcade.View):
         if "portal_layer" in self.tile_map.sprite_lists:
             self.portal_list = self.tile_map.sprite_lists["portal_layer"]
             for portal in self.portal_list:
-                portal.visible = False
+                portal.visible = True
         else:
             self.portal_list = arcade.SpriteList(use_spatial_hash=True)
 
@@ -583,7 +584,7 @@ class GameView(arcade.View):
             self.chest.draw(pixelated=True)
             self.loot_list.draw(pixelated=True)
 
-        if self.portal_list:
+        if not self.enemy_list:
             self.portal_list.draw(pixelated=True)
 
         self.cross_list.draw(pixelated=True)
@@ -595,9 +596,6 @@ class GameView(arcade.View):
 
         health_ratio = int(self.player.health / self.player.max_health)
         current_width = int(bar_max_width * health_ratio)
-
-        center_x_full = int(start_x + bar_max_width / 2)
-        center_x_current = int(start_x + current_width / 2)
 
         arcade.draw_rect_outline(
             arcade.rect.XYWH(x=start_x + bar_max_width / 2, y=start_y, width=bar_max_width, height=bar_height),
@@ -618,7 +616,9 @@ class GameView(arcade.View):
                          start_x + 5, start_y - 7, arcade.color.WHITE, 12, bold=True)
 
     def on_update(self, delta_time: float):
-        self.bullet_list.update()  # Чтобы частицы летели (change_x/y)
+        if self.particle_list:
+           self.particle_list.update()
+        self.bullet_list.update()
         self.portal_list.update()
         self.player_list.update_animation(delta_time)
         self.player_list.update()
@@ -700,15 +700,8 @@ class GameView(arcade.View):
         if self.enemy_list:
             hit_enemies = arcade.check_for_collision_with_list(self.player, self.enemy_list)
             for enemy in hit_enemies:
-                if self.invincibility_timer <= 0:
-                    player_hit = arcade.check_for_collision_with_list(self.player, self.bullet_list)
-                    for bullet in player_hit:
-                        if bullet.owner == "enemy":
-                            self.player.health -= bullet.damage
-                            bullet.remove_from_sprite_lists()
-                elif self.player.hit_cooldown <= 0:
+                if self.player.hit_cooldown <= 0:
                     self.player.health -= 3
-                    arcade.play_sound(self.hurt)
                     self.player.hit_cooldown = 1.5
 
                     dx = self.player.center_x - enemy.center_x
@@ -742,12 +735,6 @@ class GameView(arcade.View):
                     obj.remove_from_sprite_lists()
                     if self.enemy_list:
                         self.barrier_list.recalculate()
-
-            hit_enemies = []
-            if self.enemy_list:
-                hit_enemies = arcade.check_for_collision_with_list(bullet, self.enemy_list)
-
-            self.bullet_list.update()
 
             hit_enemies = arcade.check_for_collision_with_list(self.player, self.enemy_list)
             for enemy in hit_enemies:
