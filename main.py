@@ -266,8 +266,8 @@ class Cross(arcade.Sprite):
 class Player(AnimatedSprite):
     def __init__(self):
         super().__init__("res/player.png", scale=1.0)
-        self.health = 10
-        self.max_health = 10
+        self.health = 15
+        self.max_health = 15
         self.speed = 0.15
         self.hit_cooldown = 0
         self.current_level = 1

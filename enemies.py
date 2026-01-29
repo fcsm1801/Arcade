@@ -12,7 +12,7 @@ class Enemy1(AnimatedSprite):
     def __init__(self, target_player, map_width, map_height):
         super().__init__("res/enemy1.png", scale=1.0)
         self.player = target_player
-        self.speed = 1.5
+        self.speed = 0.8
         self.barrier_list = None 
         self.path = []
         self.map_width = map_width
